@@ -1,0 +1,138 @@
+html {
+    position: relative;
+    min-height: 100%;
+}
+
+::-webkit-scrollbar {
+    display: none;
+}
+
+.window {
+    height: 100vh;
+}
+
+.upper-window {
+    height: 100%;
+}
+
+.server-list-wrapper {
+    background-color: #05062D;
+    height: 100%;
+}
+
+.server-list {
+    height: 100%;
+    color : #fff;
+    padding: 6px;
+    overflow-y: scroll;
+    padding: 6px 0;
+}
+
+.channel-list-wrapper {
+    padding: 0;
+    height: 100%;
+}
+
+.right-wrapper {
+    height: 100%;
+    padding: 0;
+}
+
+.channel-wrap {
+    height: 100%;
+    padding-left: 0px;
+    padding-bottom: 50px;  /* footer size */
+}
+
+.channel-list {
+    padding: 0px 12px 12px 12px;
+    height: 100%;
+}
+
+.server-name {
+    font-size: 20px;
+}
+
+.channel-name {
+    padding-right: 6px;
+    padding-left: 6px;
+    cursor: pointer;
+    font-size: 16px;
+}
+
+.message-time {
+    margin-right: 6px;
+    color: #ccc;
+}
+
+.message-from {
+    margin-right: 6px;
+}
+.message-highlight {
+    background-color: rgba(255, 215, 215, .4);
+}
+.message.join {
+    color: #aaa;
+}
+.message.leave {
+    color: #aaa;
+}
+
+.channel-highlight {
+    background-color: rgba(0, 104, 194, 1);
+}
+
+
+.irc-input-wrap {
+    margin: 0 auto;
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    background-color: #1DE9B6;
+    height: 50px;
+    padding: 8px 10px;
+}
+.irc-input-bar {
+    width: 100%;
+}
+.irc-input {
+    border: 1px solid #ccc;
+    border-radius: 3px 3px;
+    height: 36px;
+    width: 100%;
+    padding: 6px;
+}
+
+.irc-input:focus {
+    outline: none;
+}
+
+.hidden-submit {
+    display: none;
+}
+
+.user-list-wrap {
+    height: 100%;
+    background-color: #F2F2F2;
+}
+
+.user-list {
+    height: 100%;
+    overflow-y: scroll;
+}
+
+.unread-count {
+    float: right;
+    color: #aaa;
+}
+
+.unread-count.unread-highlight {
+    font-weight: 900;
+    color: #27e895;
+}
+
+.channel-window {
+    margin-left: 12px;
+    overflow-y: scroll;
+    height: 100%;
+}
