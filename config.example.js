@@ -4,6 +4,7 @@ module.exports.keybinds = {
 }
 
 module.exports.irc = {
+    inlineImages: true,
     servers: [{
         showJoinLeave: true,
         showInlineImages: true,

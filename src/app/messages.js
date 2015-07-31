@@ -1,6 +1,9 @@
 var ipc = require('ipc');
+var classNames = require('classnames');
 var React = require('react');
+var config = require('../config.js')
 
+var detectImageRe = /(https?:\/\/.*\.(?:png|jpg|gif))/g;
 
 class Message {
     constructor(from, to, message, highlight, type) {
@@ -10,15 +13,47 @@ class Message {
         this.highlight = highlight
         this.type = type
         this.time = moment().format('h:mm:ss')
+        if (config.irc.inlineImages) {
+            this.detectImage();
+        }
+    }
+    detectImage() {
+        let groups = this.message.match(detectImageRe);
+        if (groups) {
+            this.imageSrc = groups[0];
+        }
     }
     render(key) {
-        return (
-            <div key={key} className={classNames("message", this.type, {"message-highlight": this.highlight})}>
-                <span className="message-time">{'[' + this.time + ']'}</span>
+        let inlineImage = null;
+        if (this.imageSrc) {
+            inlineImage = (
+                <div className="message-inline-image">
+                    <img src={this.imageSrc}/>
+                </div>
+            );
+        }
+        let isAction = (this.type === 'action');
+        let messageFrom = null;
+        if (isAction) {
+            messageFrom = (
+                <span className="message-from" style={{color: this.from.color, fontWeight: 'BOLD'}}>
+                    {'•' + this.from.formattedName}
+                </span>
+            );
+        } else {
+            messageFrom = (
                 <span className="message-from" style={{color: this.from.color}}>
                     {'<' + this.from.formattedName + '>'}
                 </span>
-                <span className="message-message">{this.message}</span>
+            );
+        }
+
+        return (
+            <div key={key} className={classNames("message", this.type, {"message-highlight": this.highlight})}>
+                <span className="message-time">{'[' + this.time + ']'}</span>
+                {messageFrom}
+                <span className="message-message" style={isAction ? {color: this.from.color} : {}}>{this.message}</span>
+                {inlineImage}
             </div>
         );
     }
@@ -35,6 +70,18 @@ function sendJoin(activeChannel, message) {
     }
 }
 
+function isLeave(message) {
+    return message.startsWith('/leave');
+}
+
+function sendLeave(activeChannel, message) {
+    var channelName = message.split(' ')[1];
+    channelName = channelName || activeChannel;
+    if (channelName) {
+        ipc.send('client-leave-channel', channelName);
+    }
+}
+
 function isPM(message) {
     return message.startsWith('/msg ');
 }
@@ -46,6 +93,16 @@ function sendPM(activeChannel, message) {
     ipc.send('client-send-pm', toNick, pmargs.join(' '));
 }
 
+function isAction(message) {
+    return message.startsWith('/me ');
+}
+
+function sendAction(activeChannel, message) {
+    var actionArgs = message.split(' ');
+    actionArgs.shift();
+    ipc.send('client-send-action', activeChannel, actionArgs.join(' '));
+}
+
 function isMessage(message) {
     return !message.startsWith('/');
 }
@@ -54,14 +111,23 @@ function sendMessage(activeChannel, message) {
     ipc.send('client-send-message', activeChannel, message);
 }
 
+// This is clearly stupid and we should just check for commands and otherwise send a message
 var messageParseOrder = [
     {
         parser: isJoin,
         sender: sendJoin
     },
     {
+        parser: isLeave,
+        sender: sendLeave
+    },
+    {
         parser: isPM,
         sender: sendPM,
+    },
+    {
+        parser: isAction,
+        sender: sendAction,
     },
     {
         parser: isMessage,

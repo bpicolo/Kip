@@ -21,8 +21,10 @@ var notifier = new Notifier();
 
 var Channel = React.createClass({
     componentDidUpdate: function() {
-      var node = this.getDOMNode();
-      node.scrollTop = node.scrollHeight;
+        var node = this.getDOMNode();
+        if (Math.abs(node.scrollTop - node.scrollHeight) < 1200) {
+            node.scrollTop = node.scrollHeight;
+        }
     },
     render: function() {
         let messages = this.props.channel.messages.map(function(message, i){
@@ -141,6 +143,7 @@ var IrcWindow = React.createClass({
     },
     componentDidMount: function() {
         ipc.on('join-channel-success', this.joinChannelSuccess);
+        ipc.on('leave-channel-success', this.leaveChannelSuccess);
         ipc.on('message', this.addMessageToChannel);
         ipc.on('private-message', this.addPrivateMessage);
         ipc.on('channel-names', this.channelNamesEvent);
@@ -148,6 +151,7 @@ var IrcWindow = React.createClass({
         ipc.on('part-channel', this.partChannelEvent);
         ipc.on('registered', this.registeredEvent)
         this.setupKeybinds();
+        this.setupBrowserEvents();
     },
     channelNamesEvent: function(channelName, names){
         let channel = this.state.channels[channelName];
@@ -187,16 +191,31 @@ var IrcWindow = React.createClass({
             }
         }
     },
-    joinChannelSuccess: function(name) {
-        if (!this.state.channels[name]) {
-            this.state.channels[name] = new ChannelStore(
-                name, 'standard', this.state.settings.pingOn
+    leaveChannelSuccess: function(channelName) {
+        if (!this.state.channels[channelName]) {return;}
+        if (this.state.activeChannelName === channelName) {
+            if (this.state.channelList.length > 1) {
+                this.previousChannel();
+            } else {
+                this.setState({activeChannelName:null});
+            }
+        }
+        this.state.channels[channelName] = null;
+        this.state.channelList.splice(
+            this.state.channelList.indexOf(channelName), 1
+        );
+        this.updateChannels();
+    },
+    joinChannelSuccess: function(channelName) {
+        if (!this.state.channels[channelName]) {
+            this.state.channels[channelName] = new ChannelStore(
+                channelName, 'standard', this.state.settings.pingOn
             );
-            this.state.channelList.push(name);
+            this.state.channelList.push(channelName);
             this.updateChannels();
 
             if (!this.state.activeChannelName) {
-                this.setActiveChannel(name);
+                this.setActiveChannel(channelName);
             }
         }
     },
@@ -218,7 +237,7 @@ var IrcWindow = React.createClass({
         this.setState({activeChannelName: channelName});
     },
     nextChannel: function(e) {
-        e.preventDefault();
+        e && e.preventDefault();
         if (this.state.channelList.length <= 1) { return; }
         let currentIndex = this.state.channelList.indexOf(this.state.activeChannelName);
         if (currentIndex === -1) { return; }
@@ -228,7 +247,7 @@ var IrcWindow = React.createClass({
         this.setActiveChannel(this.state.channelList[currentIndex + 1]);
     },
     previousChannel: function(e) {
-        e.preventDefault();
+        e && e.preventDefault();
         if (this.state.channelList.length <= 1) { return; }
         let currentIndex = this.state.channelList.indexOf(this.state.activeChannelName);
         if (currentIndex === -1) { return; }
@@ -236,6 +255,11 @@ var IrcWindow = React.createClass({
             return this.setActiveChannel(this.state.channelList[this.state.channelList.length - 1])
         }
         this.setActiveChannel(this.state.channelList[currentIndex - 1])
+    },
+    setupBrowserEvents: function() {
+        window.onbeforeunload = function(e) {
+            return false;
+        }
     },
     setupKeybinds: function() {
         combokeys.bindGlobal(config.keybinds.previousChannel, this.previousChannel);

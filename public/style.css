@@ -69,13 +69,20 @@ html {
     margin-right: 6px;
 }
 .message-highlight {
-    background-color: rgba(255, 215, 215, .4);
+    background-color: rgba(145, 180, 255, 0.4)
 }
 .message.join {
     color: #aaa;
 }
 .message.leave {
     color: #aaa;
+}
+.message-inline-image{
+    padding: 12px 0;
+}
+.message-inline-image img {
+    max-height: 300px;
+    max-width: 500px;
 }
 
 .channel-highlight {
@@ -114,6 +121,7 @@ html {
 .user-list-wrap {
     height: 100%;
     background-color: #F2F2F2;
+    padding-bottom: 50px;
 }
 
 .user-list {
