@@ -254,7 +254,7 @@ var IrcWindow = React.createClass({
         if (currentIndex == 0) {
             return this.setActiveChannel(this.state.channelList[this.state.channelList.length - 1])
         }
-        this.setActiveChannel(this.state.channelList[currentIndex - 1])
+        this.setActiveChannel(this.state.channelList[currentIndex - 1]);
     },
     setupBrowserEvents: function() {
         window.onbeforeunload = function(e) {

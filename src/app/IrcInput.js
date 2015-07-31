@@ -78,12 +78,14 @@ module.exports = React.createClass({
             return;
         } else if (this.state.scrollbackIndex > 0){
             this.state.scrollbackIndex--;
+        } else {
+            this.state.scrollbackIndex = null;
         }
-
+        let value = this.state.previousMessages[this.state.scrollbackIndex] || '';
         if (this.state.scrollbackIndex < this.state.previousMessages.length) {
             this.setState({
                 scrollbackIndex: this.state.scrollbackIndex,
-                value: this.state.previousMessages[this.state.scrollbackIndex],
+                value: value,
             });
         }
     },
