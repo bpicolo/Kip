@@ -1,3 +1,4 @@
+var path = require('path');
 var app = require('app');  // Module to control application life.
 var BrowserWindow = require('browser-window');  // Module to create native browser window.
 
@@ -32,7 +33,7 @@ app.on('ready', function() {
   // and load the index.html of the app.
   mainWindow.openDevTools();
   if (config) {
-    mainWindow.loadUrl('file://' + __dirname + '/dist/index.html');
+    mainWindow.loadUrl(path.normalize('file://' + __dirname + '/dist/index.html'));
     mainWindow.webContents.on('did-finish-load', function() {
       ircClient = new Irc(mainWindow, config.irc);
     });

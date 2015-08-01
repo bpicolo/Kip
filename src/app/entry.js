@@ -22,9 +22,9 @@ var notifier = new Notifier();
 var Channel = React.createClass({
     componentDidUpdate: function() {
         var node = this.getDOMNode();
-        if (Math.abs(node.scrollTop - node.scrollHeight) < 1200) {
-            node.scrollTop = node.scrollHeight;
-        }
+        // TODO make this not scroll down if user is up on purpose
+        // also inline images probably mess it up
+        node.scrollTop = node.scrollHeight;
     },
     render: function() {
         let messages = this.props.channel.messages.map(function(message, i){
