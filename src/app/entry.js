@@ -1,5 +1,7 @@
-var classNames = require('classnames');
 var ipc = require('ipc');
+var remote = require('remote');
+
+var classNames = require('classnames');
 var React = require('react');
 var moment = require('moment');
 var Combokeys = require('combokeys');
@@ -10,6 +12,7 @@ var ChannelStore = require('./app/ChannelStore');
 var IrcInput = require('./app/IrcInput');
 var Notifier = require('./app/notifications');
 var formatMessage = require('./app/messages').formatMessage;
+var menu = require('./app/menu');
 var messageParseOrder = require('./app/messages').messageParseOrder;
 var sendJoin = require('./app/messages').sendJoin;
 var util = require('./app/util')
@@ -62,7 +65,8 @@ var ChannelList = React.createClass({
                         {"channel-highlight": channelName === self.props.activeChannelName}
                     )}
                 >
-                    <span>{channelName}</span>
+                    <span className={classNames("glyphicon", channel.iconType())}/>
+                    <span className={'channel-name'}>{channelName}</span>
                     {unread}
                 </div>
             );
@@ -102,6 +106,7 @@ var IrcWindow = React.createClass({
     getInitialState: function() {
         let pingOn = config.irc.servers[0].pingOn || [];
         let serverName = config.irc.servers[0].name || config.irc.servers[0].address;
+        menu.createApplicationMenu();
         return {
             serverName: serverName,
             channels: {},
@@ -147,9 +152,9 @@ var IrcWindow = React.createClass({
         ipc.on('message', this.addMessageToChannel);
         ipc.on('private-message', this.addPrivateMessage);
         ipc.on('channel-names', this.channelNamesEvent);
-        ipc.on('join-channel', this.joinChannelEvent);
-        ipc.on('part-channel', this.partChannelEvent);
-        ipc.on('registered', this.registeredEvent)
+        ipc.on('registered', this.registeredEvent);
+        ipc.on('user-join-channel', this.joinChannelEvent);
+        ipc.on('user-part-channel', this.partChannelEvent);
         this.setupKeybinds();
         this.setupBrowserEvents();
     },
@@ -259,7 +264,16 @@ var IrcWindow = React.createClass({
     setupBrowserEvents: function() {
         window.onbeforeunload = function(e) {
             return false;
-        }
+        };
+        window.addEventListener(
+            'contextmenu',
+            function(e) {
+                if (e.target.className === 'channel-name') {
+                    menu.createChannelContextMenu(e.target.innerText);
+                }
+            },
+            false
+        );
     },
     setupKeybinds: function() {
         combokeys.bindGlobal(config.keybinds.previousChannel, this.previousChannel);

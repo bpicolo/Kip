@@ -8,6 +8,7 @@ class Irc {
     constructor(mainWindow, config) {
         var self = this;
         this._mainWindow = mainWindow;
+        this._webContents = this._mainWindow.webContents;
 
         // TODO support more than one server
         let server = config.servers[0];
@@ -25,24 +26,20 @@ class Irc {
             console.log('error: ', message);
         });
 
-        this.ircClient.addListener('names', this.sendNamesEvent.bind(this));
-        this.ircClient.addListener('join', this.joinEvent.bind(this));
-        this.ircClient.addListener('part', this.partEvent.bind(this));
-        this.ircClient.addListener('message', this.sendMessageEvent.bind(this));
-        this.ircClient.addListener('action', this.actionEvent.bind(this));
-
+        this.ircClient.addListener('names', this.sendNames.bind(this));
+        this.ircClient.addListener('join', this.sendJoin.bind(this));
+        this.ircClient.addListener('part', this.sendPart.bind(this));
+        this.ircClient.addListener('message', this.sendMessage.bind(this));
+        this.ircClient.addListener('action', this.sendAction.bind(this));
 
         this.ircClient.addListener('registered', function(message) {
-            self._mainWindow.webContents.send('registered', message);
+            self._webContents.send('registered', message);
             for (var i = 0; i < server.channels.length; i++) {
-                self.joinChannel(server.channels[i]);
+                self.clientJoinChannel(null, server.channels[i]);
             }
         });
 
         this.bindRecieveEvents();
-    }
-    disconnect() {
-        this.ircClient.disconnect();
     }
     bindRecieveEvents() {
         ipc.on('client-send-message', this.clientSendMessage.bind(this));
@@ -50,14 +47,14 @@ class Irc {
         ipc.on('client-send-pm', this.clientSendPM.bind(this));
         ipc.on('client-join-channel', this.clientJoinChannel.bind(this));
         ipc.on('client-leave-channel', this.clientLeaveChannel.bind(this));
-        ipc.on('client-disconnect', this.disconnect.bind(this));
+        ipc.on('client-disconnect', this.clientDisconnect.bind(this));
     }
     clientSendMessage(e, channelName, message) {
-        this.sendMessageEvent(this.ircClient.nick, channelName, message);
+        this.sendMessage(this.ircClient.nick, channelName, message);
         this.ircClient.say(channelName, message);
     }
     clientSendAction(e, channelName, message) {
-        this.actionEvent(this.ircClient.nick, channelName, message, null);
+        this.sendAction(this.ircClient.nick, channelName, message, null);
         this.ircClient.action(channelName, message);
     }
     clientSendPM(e, toNick, message) {
@@ -65,7 +62,10 @@ class Irc {
         this.ircClient.say(toNick, message);
     }
     clientJoinChannel(e, channelName) {
-        this.joinChannel(channelName);
+        var self = this;
+        this.ircClient.join(channelName, function(){
+            self.sendJoinChannelSuccess(channelName);
+        })
     }
     clientLeaveChannel(e, channelName) {
         var self = this;
@@ -73,44 +73,35 @@ class Irc {
             self.sendLeaveChannelSuccess(channelName);
         });
     }
+    clientDisconnect() {
+        this.ircClient.disconnect();
+    }
     sendPMEvent(toNick, message) {
-        this._mainWindow.webContents.send(
-            'private-message', toNick, this.ircClient.nick, message
-        )
+        this._webContents.send('private-message', toNick, this.ircClient.nick, message);
     }
-    sendMessageEvent(nick, toChannelName, text, message) {
+    sendMessage(nick, toChannelName, text, message) {
         if (toChannelName === this.ircClient.nick) {
-            return this._mainWindow.webContents.send(
-                'private-message', nick, nick, text
-            )
+            return this._webContents.send('private-message', nick, nick, text)
         }
-        this._mainWindow.webContents.send('message', toChannelName, nick, text);
+        this._webContents.send('message', toChannelName, nick, text);
     }
-    actionEvent(from, toChannelName, text, message) {
-        this._mainWindow.webContents.send(
-            'message', toChannelName, from, text, 'action'
-        )
+    sendAction(from, toChannelName, text, message) {
+        this._webContents.send('message', toChannelName, from, text, 'action')
     }
-    joinEvent(channel, nick, message) {
-        this._mainWindow.webContents.send('join-channel', channel, nick, message);
+    sendJoin(channel, nick, message) {
+        this._webContents.send('user-join-channel', channel, nick, message);
     }
-    partEvent(channel, nick, reason, message) {
-        this._mainWindow.webContents.send('part-channel', channel, nick, reason, message);
+    sendPart(channel, nick, reason, message) {
+        this._webContents.send('user-part-channel', channel, nick, reason, message);
     }
-    sendNamesEvent(channel, names) {
-        this._mainWindow.webContents.send('channel-names', channel, names);
+    sendNames(channel, names) {
+        this._webContents.send('channel-names', channel, names);
     }
     sendJoinChannelSuccess(channelName) {
-        this._mainWindow.webContents.send('join-channel-success', channelName);
+        this._webContents.send('join-channel-success', channelName);
     }
     sendLeaveChannelSuccess(channelName) {
-        this._mainWindow.webContents.send('leave-channel-success', channelName);
-    }
-    joinChannel(channelName) {
-        var self = this;
-        this.ircClient.join(channelName, function(){
-            self.sendJoinChannelSuccess(channelName);
-        })
+        this._webContents.send('leave-channel-success', channelName);
     }
 }
 

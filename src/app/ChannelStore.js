@@ -16,6 +16,12 @@ class User {
     }
 }
 
+var iconMap = {
+    'private-message': 'glyphicon-user',
+    'standard': 'glyphicon-comment'
+}
+
+
 class ChannelStore {
     constructor(name, type, pings) {
         this.type = type;
@@ -28,22 +34,6 @@ class ChannelStore {
         this.unread = 0;
         this.unreadPing = false;
         this._active = false;
-    }
-    active(newState) {
-        this.unread = 0
-        this.unreadPing = false;
-        this._active = newState;
-    }
-    shouldPing(message) {
-        for (var i = 0; i < this.pings.length; i++) {
-            if (message.indexOf(this.pings[0]) !== -1){
-                return true;
-            }
-        }
-        return false;
-    }
-    showUnread() {
-        return !this._active && this.unread > 0;
     }
     addPartMessage(nick, partMessage) {
         this.messages.push(new Message(
@@ -82,6 +72,25 @@ class ChannelStore {
         this.autocomplete.addElement(username);
         this.usernames.push(username); // Todo fix @, + etc
         this.usernames.sort();
+    }
+    active(newState) {
+        this.unread = 0
+        this.unreadPing = false;
+        this._active = newState;
+    }
+    shouldPing(message) {
+        for (var i = 0; i < this.pings.length; i++) {
+            if (message.indexOf(this.pings[0]) !== -1){
+                return true;
+            }
+        }
+        return false;
+    }
+    showUnread() {
+        return !this._active && this.unread > 0;
+    }
+    iconType() {
+        return iconMap[this.type];
     }
 }
 

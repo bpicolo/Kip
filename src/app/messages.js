@@ -3,6 +3,8 @@ var classNames = require('classnames');
 var React = require('react');
 var config = require('../config.js')
 
+var eventHandler = require('./event');
+
 var detectImageRe = /(https?:\/\/.*\.(?:png|jpg|gif))/g;
 
 class Message {
@@ -66,7 +68,7 @@ function isJoin(message) {
 function sendJoin(activeChannel, message) {
     var channelName = message.split(' ')[1];
     if (channelName) {
-        ipc.send('client-join-channel', channelName);
+        eventHandler.joinChannel(channelName);
     }
 }
 
@@ -78,7 +80,7 @@ function sendLeave(activeChannel, message) {
     var channelName = message.split(' ')[1];
     channelName = channelName || activeChannel;
     if (channelName) {
-        ipc.send('client-leave-channel', channelName);
+        eventHandler.leaveChannel(channelName);
     }
 }
 
@@ -90,7 +92,7 @@ function sendPM(activeChannel, message) {
     var pmargs = message.split(' ');
     pmargs.shift();
     let toNick = pmargs.shift();
-    ipc.send('client-send-pm', toNick, pmargs.join(' '));
+    eventHandler.sendPM(toNick, pmargs.join(' '));
 }
 
 function isAction(message) {
@@ -100,7 +102,7 @@ function isAction(message) {
 function sendAction(activeChannel, message) {
     var actionArgs = message.split(' ');
     actionArgs.shift();
-    ipc.send('client-send-action', activeChannel, actionArgs.join(' '));
+    eventHandler.sendAction(activeChannel, actionArgs.join(' '));
 }
 
 function isMessage(message) {
@@ -108,7 +110,7 @@ function isMessage(message) {
 }
 
 function sendMessage(activeChannel, message) {
-    ipc.send('client-send-message', activeChannel, message);
+    eventHandler.sendMessage(activeChannel, message);
 }
 
 // This is clearly stupid and we should just check for commands and otherwise send a message
