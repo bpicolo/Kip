@@ -129,21 +129,41 @@ function createApplicationMenu() {
     Menu.setApplicationMenu(Menu.buildFromTemplate(applicationMenuTemplate));
 }
 
-function createChannelContextMenu(channelName) {
-    var menu = new Menu();
+function createContextMenu(e) {
+  let self = this;  // IrcWindow context
+  let className = e.target.className;
+  var menu = new Menu();
+
+  if (e.target.className === 'channel-name') {
     let leaveChannel = (function(channelName){
         function _leaveChannel() {
-            eventHandler.leaveChannel(channelName);
+            self.leaveChannel(channelName);
         }
         return _leaveChannel;
-    })(channelName);
+    })(e.target.innerText);
     menu.append(new MenuItem({
         label: 'Leave Channel',
         click: leaveChannel
     }));
-    menu.popup(remote.getCurrentWindow());
+  }
+  if (e.target.className === 'username') {
+    let pmUser = (function(username){
+        function _pmUser() {
+            self.joinPrivateMessageChannel(username);
+        }
+        return _pmUser;
+    })(e.target.innerText);
+    menu.append(new MenuItem({
+        label: 'Send Message',
+        click: pmUser
+    }));
+  }
+
+  menu.popup(remote.getCurrentWindow());
 }
 
 
+
+
 module.exports.createApplicationMenu = createApplicationMenu;
-module.exports.createChannelContextMenu = createChannelContextMenu;
+module.exports.createContextMenu = createContextMenu;

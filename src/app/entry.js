@@ -8,6 +8,7 @@ var Combokeys = require('combokeys');
 var combokeys = new Combokeys(document);
 require('combokeys/plugins/global-bind')(combokeys);
 
+var eventHandler = require('./app/event');
 var ChannelStore = require('./app/ChannelStore');
 var IrcInput = require('./app/IrcInput');
 var Notifier = require('./app/notifications');
@@ -61,7 +62,7 @@ var ChannelList = React.createClass({
                 <div key={i}
                     onClick={self.props.setActiveChannel.bind(null, channelName)}
                     className={classNames(
-                        "channel-name",
+                        "channel-name-wrap",
                         {"channel-highlight": channelName === self.props.activeChannelName}
                     )}
                 >
@@ -72,7 +73,7 @@ var ChannelList = React.createClass({
             );
         });
         return (
-            <div className={'server-list'}>
+            <div className={'server-list noselect'}>
                 <div className="server-name">{this.props.serverName}</div>
                 <div className={'channel-list'}>
                     {channels}
@@ -88,13 +89,16 @@ var UserList = React.createClass({
         var self = this;
         let users = this.props.channel.usernames.map(function(username, i){
             return (
-                <div key={i} className={"username"}>
+                <div
+                    key={i}
+                    onDoubleClick={self.props.joinPrivateMessageChannel.bind(null, username)}
+                    className={"username"}>
                     {self.props.channel.users[username].formattedName}
                 </div>
             );
         });
         return (
-            <div className={'user-list'}>
+            <div className={'user-list noselect'}>
                 {users}
             </div>
         );
@@ -131,7 +135,7 @@ var IrcWindow = React.createClass({
     },
     addPrivateMessage: function(pmChannel, messageUser, message) {
         if (!this.state.channels[pmChannel]) {
-            this.joinPrivateMessageSuccess(pmChannel);
+            this.joinPrivateMessageChannel(pmChannel);
             this.state.channels[pmChannel].addUser(this.state.nick);
         }
         this.state.channels[pmChannel].addUser(messageUser);
@@ -183,18 +187,25 @@ var IrcWindow = React.createClass({
         this.state.channels[channelName].addPartMessage(nick, partMessage);
         this.updateChannels();
     },
-    joinPrivateMessageSuccess: function(name) {
+    joinPrivateMessageChannel: function(name) {
         if (!this.state.channels[name]) {
             this.state.channels[name] = new ChannelStore(
                 name, 'private-message', this.state.settings.pingOn
             );
             this.state.channelList.push(name);
             this.updateChannels();
-
-            if (!this.state.activeChannelName) {
-                this.setActiveChannel(name);
-            }
+            this.setActiveChannel(name);
+        } else {
+            this.setActiveChannel(name);
         }
+    },
+    leaveChannel: function(channelName) {
+        let channel = this.state.channels[channelName];
+        if (channel.type === 'private-message') {
+            // Not real IRC channels, don't send LEAVE event.
+            return this.leaveChannelSuccess(channelName);
+        }
+        eventHandler.leaveChannel(channelName);
     },
     leaveChannelSuccess: function(channelName) {
         if (!this.state.channels[channelName]) {return;}
@@ -267,11 +278,7 @@ var IrcWindow = React.createClass({
         };
         window.addEventListener(
             'contextmenu',
-            function(e) {
-                if (e.target.className === 'channel-name') {
-                    menu.createChannelContextMenu(e.target.innerText);
-                }
-            },
+            menu.createContextMenu.bind(this),
             false
         );
     },
@@ -285,7 +292,9 @@ var IrcWindow = React.createClass({
         let users = null;
         if (this.state.activeChannelName) {
             channel = <Channel channel={this.state.channels[this.state.activeChannelName]}/>;
-            users = <UserList channel={this.state.channels[this.state.activeChannelName]}/>;
+            users = <UserList
+                channel={this.state.channels[this.state.activeChannelName]}
+                joinPrivateMessageChannel={this.joinPrivateMessageChannel}/>;
         }
         return (
             <div>
