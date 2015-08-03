@@ -1,3 +1,5 @@
+import Linkify from 'react-linkify';
+import shell from 'shell';
 var ipc = require('ipc');
 var classNames = require('classnames');
 var React = require('react');
@@ -31,6 +33,10 @@ export class Message {
     onImageLoad() {
         channelDispatcher.dispatch({actionType: 'content-load'})
     }
+    openLink(e) {
+        e.preventDefault();
+        shell.openExternal(e.target.href);
+    }
     render(key) {
         let inlineImage = null;
         if (this.imageSrc) {
@@ -62,7 +68,9 @@ export class Message {
             <div key={key} className={classNames("message", this.type, {"message-highlight": this.highlight})}>
                 <span className="message-time">{'[' + this.time + ']'}</span>
                 {messageFrom}
-                <span className="message-message" style={isAction ? {color: this.from.color} : {}}>{this.message}</span>
+                <span className="message-message" style={isAction ? {color: this.from.color} : {}}>
+                    <Linkify properties={{onClick: this.openLink}}>{this.message}</Linkify>
+                </span>
                 {inlineImage}
             </div>
         );
