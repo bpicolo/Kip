@@ -8,10 +8,10 @@ var Combokeys = require('combokeys');
 var combokeys = new Combokeys(document);
 require('combokeys/plugins/global-bind')(combokeys);
 
+import { channelDispatcher, ChannelStore } from './app/ChannelStore';
+import { Notifier } from './app/notifications';
 var eventHandler = require('./app/event');
-var ChannelStore = require('./app/ChannelStore');
 var IrcInput = require('./app/IrcInput');
-var Notifier = require('./app/notifications');
 var formatMessage = require('./app/messages').formatMessage;
 var menu = require('./app/menu');
 var messageParseOrder = require('./app/messages').messageParseOrder;
@@ -19,16 +19,24 @@ var sendJoin = require('./app/messages').sendJoin;
 var util = require('./app/util')
 
 var config = require('./config.js')
-
-
 var notifier = new Notifier();
 
 var Channel = React.createClass({
-    componentDidUpdate: function() {
+    handleDispatch: function(payload) {
+        if (payload.actionType === 'content-load') {
+            this.shouldScroll();
+        }
+    },
+    shouldScroll: function() {
+        // This shouldnt scroll if we're scrolled to the top on purpose
         var node = this.getDOMNode();
-        // TODO make this not scroll down if user is up on purpose
-        // also inline images probably mess it up
         node.scrollTop = node.scrollHeight;
+    },
+    componentDidMount: function() {
+        channelDispatcher.register(this.handleDispatch)
+    },
+    componentDidUpdate: function() {
+        this.shouldScroll();
     },
     render: function() {
         let messages = this.props.channel.messages.map(function(message, i){
@@ -44,6 +52,10 @@ var Channel = React.createClass({
 
 
 var ChannelList = React.createClass({
+    onContextMenu: function(e) {
+        e.preventDefault();
+        menu.createChannelListContextMenu(e.target.innerText, this.props.leaveChannel);
+    },
     render: function() {
         var self = this;
         let channels = this.props.channelList.map(function(channelName, i){
@@ -67,7 +79,10 @@ var ChannelList = React.createClass({
                     )}
                 >
                     <span className={classNames("glyphicon", channel.iconType())}/>
-                    <span className={'channel-name'}>{channelName}</span>
+                    <span
+                        onContextMenu={self.onContextMenu}
+                        className={'channel-name'}>{channelName}
+                    </span>
                     {unread}
                 </div>
             );
@@ -85,6 +100,13 @@ var ChannelList = React.createClass({
 
 
 var UserList = React.createClass({
+    onContextMenu: function(e) {
+        e.preventDefault();
+        menu.createUserListContextMenu(
+            e.target.innerText,
+            this.props.joinPrivateMessageChannel
+        )
+    },
     render: function() {
         var self = this;
         let users = this.props.channel.usernames.map(function(username, i){
@@ -92,6 +114,7 @@ var UserList = React.createClass({
                 <div
                     key={i}
                     onDoubleClick={self.props.joinPrivateMessageChannel.bind(null, username)}
+                    onContextMenu={self.onContextMenu}
                     className={"username"}>
                     {self.props.channel.users[username].formattedName}
                 </div>
@@ -174,17 +197,21 @@ var IrcWindow = React.createClass({
     joinChannelEvent: function(channelName, nick, message){
         let channel = this.state.channels[channelName];
         if (!channel) { return; }
-        let joinMessage = `(${message.user}@${message.host}) joined the channel`;
-        channel.addUser(nick);
-        this.addMessageToChannel(channelName, nick, joinMessage, 'join');
+        if (config.irc.showJoinLeave) {
+            let joinMessage = `(${message.user}@${message.host}) joined the channel`;
+            channel.addUser(nick);
+            this.addMessageToChannel(channelName, nick, joinMessage, 'join');
+        }
         this.updateChannels();
     },
     partChannelEvent: function(channelName, nick, reason, message){
         let channel = this.state.channels[channelName];
         if (!channel) { return; }
-        let partMessage = `(${message.user}@${message.host}) left the channel`;
-        channel.removeUser(nick);
-        this.state.channels[channelName].addPartMessage(nick, partMessage);
+        if (config.irc.showJoinLeave) {
+            let partMessage = `(${message.user}@${message.host}) left the channel`;
+            channel.removeUser(nick);
+            this.state.channels[channelName].addPartMessage(nick, partMessage);
+        }
         this.updateChannels();
     },
     joinPrivateMessageChannel: function(name) {
@@ -216,7 +243,8 @@ var IrcWindow = React.createClass({
                 this.setState({activeChannelName:null});
             }
         }
-        this.state.channels[channelName] = null;
+
+        delete this.state.channels[channelName];
         this.state.channelList.splice(
             this.state.channelList.indexOf(channelName), 1
         );
@@ -230,16 +258,17 @@ var IrcWindow = React.createClass({
             this.state.channelList.push(channelName);
             this.updateChannels();
 
-            if (!this.state.activeChannelName) {
-                this.setActiveChannel(channelName);
-            }
+            this.setActiveChannel(channelName);
         }
     },
     getActiveChannel: function() {
         return this.state.channels[this.state.activeChannelName];
     },
     updateChannels: function() {
-        this.setState({channels: this.state.channels});
+        this.setState({
+            channels: this.state.channels,
+            channelList: this.state.channelList,
+        });
     },
     setActiveChannel: function(channelName) {
         if (channelName === this.state.activeChannelName || !this.state.channels[channelName]) {
@@ -276,11 +305,6 @@ var IrcWindow = React.createClass({
         window.onbeforeunload = function(e) {
             return false;
         };
-        window.addEventListener(
-            'contextmenu',
-            menu.createContextMenu.bind(this),
-            false
-        );
     },
     setupKeybinds: function() {
         combokeys.bindGlobal(config.keybinds.previousChannel, this.previousChannel);
@@ -291,7 +315,8 @@ var IrcWindow = React.createClass({
         let channel = null;
         let users = null;
         if (this.state.activeChannelName) {
-            channel = <Channel channel={this.state.channels[this.state.activeChannelName]}/>;
+            channel = <Channel
+                        channel={this.state.channels[this.state.activeChannelName]}/>;
             users = <UserList
                 channel={this.state.channels[this.state.activeChannelName]}
                 joinPrivateMessageChannel={this.joinPrivateMessageChannel}/>;
@@ -306,10 +331,13 @@ var IrcWindow = React.createClass({
                                 channels={this.state.channels}
                                 channelList={this.state.channelList}
                                 setActiveChannel={this.setActiveChannel}
-                                activeChannelName={this.state.activeChannelName}/>
+                                activeChannelName={this.state.activeChannelName}
+                                leaveChannel={this.leaveChannel}/>
                         </div>
                         <div className="col-xs-10 right-wrapper">
-                            <div className="col-xs-10 channel-wrap">
+                            <div
+                                className="col-xs-10 channel-wrap"
+                                onContextMenu={menu.showChannelContext}>
                                 {channel}
                             </div>
                             <div className="col-xs-2 user-list-wrap">

@@ -2,7 +2,7 @@ var ipc = require('ipc');
 var config = require('../config.js');
 var notifier = require('node-notifier');
 
-class Notifier {
+export class Notifier {
     sendNotification(title, message) {
         notifier.notify({
             title: title,
@@ -11,5 +11,3 @@ class Notifier {
         });
     }
 }
-
-module.exports = Notifier

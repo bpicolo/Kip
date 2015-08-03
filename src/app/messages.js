@@ -3,11 +3,14 @@ var classNames = require('classnames');
 var React = require('react');
 var config = require('../config.js')
 
+import { channelDispatcher } from './ChannelStore';
 var eventHandler = require('./event');
 
 var detectImageRe = /(https?:\/\/.*\.(?:png|jpg|gif))/g;
 
-class Message {
+// This is a clear butchery of React, though to be fair we expect these to be
+// immutable...let's do this better >.> Wut was I thinking
+export class Message {
     constructor(from, to, message, highlight, type) {
         this.from = from
         this.to = to
@@ -15,7 +18,7 @@ class Message {
         this.highlight = highlight
         this.type = type
         this.time = moment().format('h:mm:ss')
-        if (config.irc.inlineImages) {
+        if (config.irc.showInlineImages) {
             this.detectImage();
         }
     }
@@ -25,12 +28,17 @@ class Message {
             this.imageSrc = groups[0];
         }
     }
+    onImageLoad() {
+        channelDispatcher.dispatch({actionType: 'content-load'})
+    }
     render(key) {
         let inlineImage = null;
         if (this.imageSrc) {
             inlineImage = (
                 <div className="message-inline-image">
-                    <img src={this.imageSrc}/>
+                    <img
+                        onLoad={this.onImageLoad}
+                        onError={this.onImageLoad} src={this.imageSrc}/>
                 </div>
             );
         }
@@ -65,7 +73,7 @@ function isJoin(message) {
     return message.startsWith('/join ');
 }
 
-function sendJoin(activeChannel, message) {
+export function sendJoin(activeChannel, message) {
     var channelName = message.split(' ')[1];
     if (channelName) {
         eventHandler.joinChannel(channelName);
@@ -114,7 +122,7 @@ function sendMessage(activeChannel, message) {
 }
 
 // This is clearly stupid and we should just check for commands and otherwise send a message
-var messageParseOrder = [
+export var messageParseOrder = [
     {
         parser: isJoin,
         sender: sendJoin
@@ -136,9 +144,3 @@ var messageParseOrder = [
         sender: sendMessage
     }
 ];
-
-
-module.exports.messageParseOrder = messageParseOrder;
-module.exports.sendJoin = sendJoin
-module.exports.formatMessage = formatMessage;
-module.exports.Message = Message;

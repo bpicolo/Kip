@@ -5,18 +5,18 @@ module.exports.keybinds = {
 
 module.exports.irc = {
     inlineImages: true,
+    showJoinLeave: true,
+    showInlineImages: true,  // Whether to render images inline
     servers: [{
-        showJoinLeave: true,
-        showInlineImages: true,
-        showNotifications: true,
+        showNotifications: true,  // Whether to show system-level notifications
         notificationPing: true,
         name: 'MyIRCServer',
         address: 'irc.place.com',
         port: 6667,
         password: 'password',
-        secure: true,
-        channels: ['#coding'],
+        secure: true,  // SSL?
+        channels: ['#coding'],  // Channels to join by default
         nick: 'kip',
-        pingOn: ['kip']
+        pingOn: ['kip'] // Phrases to recieve desktop notifications / highlights for
     }]
 }

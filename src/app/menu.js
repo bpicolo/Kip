@@ -5,7 +5,7 @@ var MenuItem = remote.require('menu-item');
 var eventHandler = require('./event');
 
 
-var standardContextTemplate = [
+var channelContextMenu = [
     {
         label: 'Copy',
         accelerator: 'CmdOrCtrl+C',
@@ -125,45 +125,49 @@ var applicationMenuTemplate = [
   }
 ]
 
-function createApplicationMenu() {
+
+export function createApplicationMenu() {
     Menu.setApplicationMenu(Menu.buildFromTemplate(applicationMenuTemplate));
 }
 
-function createContextMenu(e) {
-  let self = this;  // IrcWindow context
-  let className = e.target.className;
+
+export function createUserListContextMenu(username, joinPrivateMessageCallback) {
   var menu = new Menu();
 
-  if (e.target.className === 'channel-name') {
-    let leaveChannel = (function(channelName){
-        function _leaveChannel() {
-            self.leaveChannel(channelName);
-        }
-        return _leaveChannel;
-    })(e.target.innerText);
-    menu.append(new MenuItem({
-        label: 'Leave Channel',
-        click: leaveChannel
-    }));
-  }
-  if (e.target.className === 'username') {
-    let pmUser = (function(username){
-        function _pmUser() {
-            self.joinPrivateMessageChannel(username);
-        }
-        return _pmUser;
-    })(e.target.innerText);
-    menu.append(new MenuItem({
-        label: 'Send Message',
-        click: pmUser
-    }));
-  }
+  let pmUser = (function(){
+      function _pmUser() {
+          joinPrivateMessageCallback(username);
+      }
+      return _pmUser;
+  })();
+  menu.append(new MenuItem({
+      label: 'Send Message',
+      click: pmUser
+  }));
 
   menu.popup(remote.getCurrentWindow());
 }
 
 
+export function createChannelListContextMenu(channelName, leaveChannelCallback) {
+  var menu = new Menu();
+
+  let leaveChannel = (function(){
+    function _leaveChannel() {
+      leaveChannelCallback(channelName);
+    }
+    return _leaveChannel;
+  })();
+  menu.append(new MenuItem({
+      label: 'Leave Channel',
+      click: leaveChannel
+  }));
+
+  menu.popup(remote.getCurrentWindow());
+}
 
 
-module.exports.createApplicationMenu = createApplicationMenu;
-module.exports.createContextMenu = createContextMenu;
+var channelContextMenu = Menu.buildFromTemplate(channelContextMenu);
+export function showChannelContext(e) {
+  channelContextMenu.popup(remote.getCurrentWindow());
+}

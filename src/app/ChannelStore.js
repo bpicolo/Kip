@@ -1,5 +1,10 @@
-var Autocomplete = require('autocomplete');
-var Message = require('./messages').Message;
+import { Dispatcher } from 'flux';
+import EventEmitter from 'events';
+import Autocomplete from 'autocomplete';
+import { Message } from './messages';
+
+
+export var channelDispatcher = new Dispatcher();
 
 
 class User {
@@ -22,7 +27,7 @@ var iconMap = {
 }
 
 
-class ChannelStore {
+export class ChannelStore {
     constructor(name, type, pings) {
         this.type = type;
         this.name = name;
@@ -93,5 +98,3 @@ class ChannelStore {
         return iconMap[this.type];
     }
 }
-
-module.exports = ChannelStore;
