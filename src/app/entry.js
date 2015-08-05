@@ -137,7 +137,8 @@ var IrcWindow = React.createClass({
             channelList: [],
             nick: null,
             users: {},
-            usernames: []
+            usernames: [],
+            messages: [],
         }
     },
     registeredEvent: function(message) {
@@ -150,8 +151,14 @@ var IrcWindow = React.createClass({
         serverStore.nick = message.args[0];
         this.setState({nick: serverStore.nick});
     },
-    addMessage: function(channelName, fromUser, message, messageType) {
-        serverStore.addMessage(channelName, fromUser, message, messageType);
+    onDisconnect: function() {
+        serverStore.onDisconnect();
+        ipc.send('client-reconnect');
+        this.refreshActiveChannel();
+    },
+    onReconnect: function() {
+        serverStore.onReconnect();
+        this.refreshActiveChannel();
     },
     addPrivateMessage: function(pmChannel, messageUser, message) {
         if (!this.state.channels[pmChannel]) {
@@ -159,16 +166,12 @@ var IrcWindow = React.createClass({
             this.state.channels[pmChannel].addUser(this.state.nick);
         }
         this.state.channels[pmChannel].addUser(messageUser);
-        this.addMessage(pmChannel, messageUser, message, 'private-message');
-        this.setState({channels: this.state.channels});
+        this.addMessageToChannel(pmChannel, messageUser, message, 'private-message');
     },
     addMessageToChannel: function(channelName, from, message, type) {
-        if (!this.state.channels[channelName]) {
-            this.joinChannelEvent(channelName, from, message);
-        }
         let messageType = type || 'text-message';
-        this.addMessage(channelName, from, message, messageType);
-        this.setState({channels: this.state.channels});
+        serverStore.addMessage(channelName, from, message, messageType);
+        this.refreshMessages();
     },
     componentDidMount: function() {
         ipc.on('join-channel-success', this.joinChannelSuccess);
@@ -179,6 +182,8 @@ var IrcWindow = React.createClass({
         ipc.on('registered', this.registeredEvent);
         ipc.on('user-join-channel', this.joinChannelEvent);
         ipc.on('user-part-channel', this.partChannelEvent);
+        ipc.on('disconnect', this.onDisconnect);
+        ipc.on('reconnect', this.onReconnect);
         this.setupKeybinds();
         this.setupBrowserEvents();
     },
@@ -186,33 +191,39 @@ var IrcWindow = React.createClass({
         serverStore.setChannelNames(channelName, names);
         // No need to re-render
         if (channelName !== this.state.activeChannelName){ return; };
-        this.updateUserList();
+        this.refreshUserList();
     },
-    updateUserList: function() {
+    refreshUserList: function() {
         this.setState({
             'users': serverStore.channels[this.state.activeChannelName].users,
             'usernames': serverStore.channels[this.state.activeChannelName].usernames
         });
     },
     joinChannelEvent: function(channelName, nick, message){
-        let channel = this.state.channels[channelName];
+        let channel = serverStore.channels[channelName];
         if (!channel) { return; }
         channel.addUser(nick);
         if (config.irc.showJoinLeave) {
             let joinMessage = `(${message.user}@${message.host}) joined the channel`;
             this.addMessageToChannel(channelName, nick, joinMessage, 'join');
+            this.refreshMessages();
         }
-        this.updateChannels();
+        if (channelName === this.state.activeChannelName) {
+            this.refreshUserList();
+        }
     },
     partChannelEvent: function(channelName, nick, reason, message){
-        let channel = this.state.channels[channelName];
+        let channel = serverStore.channels[channelName];
         if (!channel) { return; }
         channel.removeUser(nick);
         if (config.irc.showJoinLeave) {
             let partMessage = `(${message.user}@${message.host}) left the channel`;
-            this.state.channels[channelName].addPartMessage(nick, partMessage);
+            serverStore.channels[channelName].addPartMessage(nick, partMessage);
+            this.refreshMessages();
         }
-        this.updateChannels();
+        if (channelName === this.state.activeChannelName) {
+            this.refreshUserList();
+        }
     },
     joinPrivateMessageChannel: function(name) {
         if (!this.state.channels[name]) {
@@ -248,15 +259,26 @@ var IrcWindow = React.createClass({
         let channel = serverStore.getActiveChannel();
         let users = {};
         let usernames = [];
+        let messages = [];
         if (channel) {
             users = channel.users;
             usernames = channel.usernames;
+            messages = channel.messages;
         }
         this.setState({
             activeChannelName: serverStore.activeChannelName,
             users: users,
             usernames: usernames,
+            messages: messages,
         });
+    },
+    refreshMessages: function() {
+        let channel = serverStore.getActiveChannel();
+        let messages = [];
+        if (channel) {
+            messages = channel.messages;
+        }
+        this.setState({messages: messages});
     },
     updateChannels: function() {
         this.setState({

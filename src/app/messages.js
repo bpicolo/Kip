@@ -10,6 +10,28 @@ import moment from 'moment';
 
 var detectImageRe = /(https?:\/\/.*\.(?:png|jpg|gif))/g;
 
+
+export class ConnectMessage {
+    constructor(connected) {
+        this.time = moment().format('h:mm:ss');
+        this.type = 'connection';
+        if (connected) {
+            this.message = 'You have been reconnected to the channel.';
+        } else {
+            this.message = 'You have been disconnected from the channel.';
+        }
+    }
+    render(key) {
+        return (
+            <div key={key} className={classNames('message', this.type)}>
+                <span className="message-time">{'[' + this.time + ']'}</span>
+                <span className="message-message">
+                    {this.message}
+                </span>
+            </div>
+        );
+    }
+}
 // This is a clear butchery of React, though to be fair we expect these to be
 // immutable...let's do this better >.> Wut was I thinking
 export class Message {

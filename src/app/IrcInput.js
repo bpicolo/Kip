@@ -21,7 +21,7 @@ module.exports = React.createClass({
         let query = frags.pop();
         if (query) {
             let results = this.props.channel.autocomplete.search(query);
-            let result = results[0] ? results[0] + ' ': query;
+            let result = results[0] ? results[0] : query;
             frags.push(result);
             this.setState({'value': frags.join(' ')});
         }

@@ -1,7 +1,7 @@
 import { Dispatcher } from 'flux';
 import EventEmitter from 'events';
 import Autocomplete from 'autocomplete';
-import { Message } from './messages';
+import { Message, ConnectMessage } from './messages';
 import eventHandler from './event';
 import config from '../config';
 import { Notifier } from './notifications';
@@ -99,6 +99,14 @@ export class ChannelStore {
     iconType() {
         return iconMap[this.type];
     }
+    disconnect() {
+        this.connected = false;
+        this.messages.push(new ConnectMessage(false));
+    }
+    reconnect() {
+        this.connected = false;
+        this.messages.push(new ConnectMessage(true));
+    }
 }
 
 
@@ -194,6 +202,17 @@ class ServerStore {
         for (var key in names) {
             let userType = names[key]
             channel.addUser(key, userType);
+        }
+    }
+    onDisconnect() {
+        // Mark all channels disconnected and add disconnect messages
+        for (var key in this.channels) {
+            this.channels[key].disconnect();
+        }
+    }
+    onReconnect() {
+        for (var key in this.channels) {
+            this.channels[key].reconnect();
         }
     }
 }

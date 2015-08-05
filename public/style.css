@@ -101,6 +101,12 @@ html {
 .message.leave {
     color: #aaa;
 }
+.message.connection {
+    color: #aaa;
+}
+.message.connection .message-time {
+    color: #aaa;
+}
 .message-inline-image{
     padding: 12px 0;
 }

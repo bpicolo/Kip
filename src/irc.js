@@ -13,10 +13,11 @@ class Irc {
         let server = config.servers[0];
 
         this.ircClient = new irc.Client(server.address, server.nick, {
+            userName: 'KipIRC',
+            realName: 'Kip IRC client',
             port: server.port,
-            password: server.password,
-            secure: server.secure,
-            channels: server.channels,
+            password: server.password || null,
+            secure: server.secure || false,
             retryCount: 3,
             stripColors: true,  // bad feature
         });
@@ -47,9 +48,13 @@ class Irc {
         ipc.on('client-join-channel', this.clientJoinChannel.bind(this));
         ipc.on('client-leave-channel', this.clientLeaveChannel.bind(this));
         ipc.on('client-disconnect', this.clientDisconnect.bind(this));
+        ipc.on('client-reconnect', this.clientReconnect.bind(this))
     }
     pingServer() {
         this.ircCLient.send('ping', this.ircClient.opt.server);
+    }
+    clientReconnect() {
+        this.ircClient.connect(3, this.sendReconnectSuccess.bind(this));
     }
     clientSendMessage(e, channelName, message) {
         this.sendMessage(this.ircClient.nick, channelName, message);
@@ -79,7 +84,7 @@ class Irc {
         this.ircClient.disconnect();
     }
     onDisconnect() {
-
+        this._webContents.send('disconnect');
     }
     sendPMEvent(toNick, message) {
         this._webContents.send('private-message', toNick, this.ircClient.nick, message);
@@ -107,6 +112,9 @@ class Irc {
     }
     sendLeaveChannelSuccess(channelName) {
         this._webContents.send('leave-channel-success', channelName);
+    }
+    sendReconnectSuccess() {
+        this._webContents.send('reconnect');
     }
 }
 
