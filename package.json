@@ -6,7 +6,7 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "electron .",
-    "debug": "electron . --debug 5858"
+    "debug": "electron . --debug-brk 5858"
   },
   "author": "",
   "license": "ISC",

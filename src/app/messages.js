@@ -1,12 +1,12 @@
 import Linkify from 'react-linkify';
 import shell from 'shell';
-var ipc = require('ipc');
-var classNames = require('classnames');
-var React = require('react');
-var config = require('../config.js')
-
-import { channelDispatcher } from './ChannelStore';
-var eventHandler = require('./event');
+import { channelDispatcher, serverStore } from './ChannelStore';
+import ipc from 'ipc';
+import classNames from 'classnames';
+import React from 'react';
+import config from '../config.js';
+import eventHandler from './event';
+import moment from 'moment';
 
 var detectImageRe = /(https?:\/\/.*\.(?:png|jpg|gif))/g;
 
@@ -84,7 +84,7 @@ function isJoin(message) {
 export function sendJoin(activeChannel, message) {
     var channelName = message.split(' ')[1];
     if (channelName) {
-        eventHandler.joinChannel(channelName);
+        serverStore.addNewChannel(channelName, 'standard');
     }
 }
 

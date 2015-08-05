@@ -76,6 +76,14 @@ html {
     padding-left: 6px;
 }
 
+.channel-highlight {
+    background-color: rgba(0, 104, 194, 1);
+}
+
+.channel-disconnected {
+    color: #aaa;
+}
+
 .message-time {
     margin-right: 6px;
     color: #ccc;
@@ -99,10 +107,6 @@ html {
 .message-inline-image img {
     max-height: 300px;
     max-width: 500px;
-}
-
-.channel-highlight {
-    background-color: rgba(0, 104, 194, 1);
 }
 
 

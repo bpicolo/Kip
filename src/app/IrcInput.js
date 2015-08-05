@@ -1,9 +1,10 @@
-var React = require('react');
-var Combokeys = require('combokeys');
-var combokeys = new Combokeys(document);
-require('combokeys/plugins/global-bind')(combokeys);
+import React from 'react';
+import Combokeys from 'combokeys';
+import globalBind from 'combokeys/plugins/global-bind';
+import { messageParseOrder } from './messages';
+import config from '../config.js';
 
-var config = require('../config.js');
+var combokeys = globalBind(new Combokeys(document));
 
 
 module.exports = React.createClass({

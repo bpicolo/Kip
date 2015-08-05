@@ -1,8 +1,9 @@
-var remote = require('remote');
+import remote from 'remote';
+
+import eventHandler from './event';
+
 var Menu = remote.require('menu');
 var MenuItem = remote.require('menu-item');
-
-var eventHandler = require('./event');
 
 
 var channelContextMenu = [

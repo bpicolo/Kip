@@ -2,10 +2,12 @@ import { Dispatcher } from 'flux';
 import EventEmitter from 'events';
 import Autocomplete from 'autocomplete';
 import { Message } from './messages';
-
+import eventHandler from './event';
+import config from '../config';
+import { Notifier } from './notifications';
 
 export var channelDispatcher = new Dispatcher();
-
+var notifier = new Notifier();
 
 class User {
     constructor(username, userType) {
@@ -28,17 +30,17 @@ var iconMap = {
 
 
 export class ChannelStore {
-    constructor(name, type, pings) {
+    constructor(name, type) {
         this.type = type;
         this.name = name;
         this.users = {};
         this.usernames = [];
         this.autocomplete = new Autocomplete();
         this.messages = [];
-        this.pings = pings || [];
         this.unread = 0;
         this.unreadPing = false;
         this._active = false;
+        this.connected = false;
     }
     addPartMessage(nick, partMessage) {
         this.messages.push(new Message(
@@ -84,8 +86,8 @@ export class ChannelStore {
         this._active = newState;
     }
     shouldPing(message) {
-        for (var i = 0; i < this.pings.length; i++) {
-            if (message.indexOf(this.pings[0]) !== -1){
+        for (var i = 0; i < serverStore.settings.pingOn.length; i++) {
+            if (message.indexOf(serverStore.settings.pingOn[0]) !== -1){
                 return true;
             }
         }
@@ -98,3 +100,103 @@ export class ChannelStore {
         return iconMap[this.type];
     }
 }
+
+
+class ServerStore {
+    constructor() {
+        this.serverName = null;
+        this.channels = {};
+        this.activeChannelName = null;
+        this.channelList = [];
+        this.settings = {
+            pingOn: config.irc.servers[0].pingOn,
+            showNotifications: config.irc.servers[0].showNotifications,
+        };
+        this.nick = null;
+    }
+    addMessage(channelName, fromUser, message, messageType) {
+        let shouldPing = this.channels[channelName].addMessage(fromUser, message, messageType);
+        if (shouldPing && this.settings.showNotifications && fromUser !== this.nick) {
+            notifier.sendNotification(`New message from ${fromUser} in ${channelName}`, message);
+        }
+    }
+    addNewChannel(channelName, channelType) {
+        if (!this.channels[channelName]) {
+            this.channels[channelName] = new ChannelStore(channelName, channelType);
+            this.channelList.push(channelName);
+            eventHandler.joinChannel(channelName);
+        } else {
+            eventHandler.joinChannel(channelName);
+        }
+    }
+    markJoinedChannel(channelName) {
+        this.channels[channelName].connected = true;
+        if (!this.activeChannelName) {
+            this.activeChannelName = channelName;
+        }
+    }
+    leaveChannel(channelName) {
+        if (!this.channels[channelName]) {return};
+        if (this.channels[channelName].type === 'private-message') {
+            // Not real IRC channels, don't send LEAVE event.
+            return this.markLeftChannel(channelName);
+        }
+        eventHandler.leaveChannel(channelName);
+    }
+    getActiveChannel() {
+        return this.channels[this.activeChannelName];
+    }
+    markLeftChannel(channelName) {
+        if (!this.channels[channelName]) {return;}
+        if (this.activeChannelName === channelName) {
+            if (this.channelList.length > 1) {
+                this.previousChannel();
+            } else {
+                this.activeChannelName = null;
+            }
+        }
+
+        delete this.channels[channelName];
+        this.channelList.splice(
+            this.channelList.indexOf(channelName), 1
+        );
+    }
+    setActiveChannel(channelName) {
+        if (channelName === this.activeChannelName || !this.channels[channelName]) {
+            return;
+        }
+        let current = this.getActiveChannel();
+        if (current) { current.active(false); }
+        this.channels[channelName].active(true);
+        this.activeChannelName = channelName;
+    }
+    setPreviousChannel() {
+        if (this.channelList.length <= 1) { return; }
+        let currentIndex = this.channelList.indexOf(this.activeChannelName);
+        if (currentIndex === -1) { return; }
+        if (currentIndex == 0) {
+            return this.setActiveChannel(this.channelList[this.channelList.length - 1])
+        }
+        this.setActiveChannel(this.channelList[currentIndex - 1]);
+    }
+    setNextChannel() {
+        if (this.channelList.length <= 1) { return; }
+        let currentIndex = this.channelList.indexOf(this.activeChannelName);
+        if (currentIndex === -1) { return; }
+        if (currentIndex == this.channelList.length - 1) {
+            return this.setActiveChannel(this.channelList[0]);
+        }
+        this.setActiveChannel(this.channelList[currentIndex + 1]);
+    }
+    setChannelNames(channelName, names) {
+        let channel = this.channels[channelName];
+        if (!channel) { return; }
+        for (var key in names) {
+            let userType = names[key]
+            channel.addUser(key, userType);
+        }
+    }
+}
+
+
+export var serverStore = new ServerStore();

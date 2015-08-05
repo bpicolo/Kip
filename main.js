@@ -31,7 +31,7 @@ app.on('ready', function() {
   });
 
   // and load the index.html of the app.
-  //mainWindow.openDevTools();
+  mainWindow.openDevTools();
   if (config) {
     mainWindow.loadUrl(path.normalize('file://' + __dirname + '/dist/index.html'));
     mainWindow.webContents.on('did-finish-load', function() {

@@ -1,25 +1,19 @@
-var ipc = require('ipc');
-var remote = require('remote');
+import ipc from 'ipc';
+import remote from 'remote';
 
-var classNames = require('classnames');
-var React = require('react');
-var moment = require('moment');
-var Combokeys = require('combokeys');
-var combokeys = new Combokeys(document);
-require('combokeys/plugins/global-bind')(combokeys);
+import classNames from 'classnames';
+import React from 'react';
+import Combokeys from 'combokeys';
+import globalBind from 'combokeys/plugins/global-bind';
 
-import { channelDispatcher, ChannelStore } from './app/ChannelStore';
-import { Notifier } from './app/notifications';
-var eventHandler = require('./app/event');
-var IrcInput = require('./app/IrcInput');
-var formatMessage = require('./app/messages').formatMessage;
-var menu = require('./app/menu');
-var messageParseOrder = require('./app/messages').messageParseOrder;
-var sendJoin = require('./app/messages').sendJoin;
-var util = require('./app/util')
+import { channelDispatcher, ChannelStore, serverStore } from './app/ChannelStore';
+import eventHandler from './app/event';
+import IrcInput from './app/IrcInput';
+import * as menu from './app/menu';
+import * as util from './app/util';
+import config from './config';
 
-var config = require('./config.js')
-var notifier = new Notifier();
+var combokeys = globalBind(new Combokeys(document));
 
 var Channel = React.createClass({
     handleDispatch: function(payload) {
@@ -75,7 +69,10 @@ var ChannelList = React.createClass({
                     onClick={self.props.setActiveChannel.bind(null, channelName)}
                     className={classNames(
                         "channel-name-wrap",
-                        {"channel-highlight": channelName === self.props.activeChannelName}
+                        {
+                            "channel-disconnected": !self.props.channels[channelName].connected,
+                            "channel-highlight": channelName === self.props.activeChannelName
+                        }
                     )}
                 >
                     <span className={classNames("glyphicon", channel.iconType())}/>
@@ -109,14 +106,14 @@ var UserList = React.createClass({
     },
     render: function() {
         var self = this;
-        let users = this.props.channel.usernames.map(function(username, i){
+        let users = this.props.usernames.map(function(username, i){
             return (
                 <div
                     key={i}
                     onDoubleClick={self.props.joinPrivateMessageChannel.bind(null, username)}
                     onContextMenu={self.onContextMenu}
                     className={"username"}>
-                    {self.props.channel.users[username].formattedName}
+                    {self.props.users[username].formattedName}
                 </div>
             );
         });
@@ -131,30 +128,30 @@ var UserList = React.createClass({
 
 var IrcWindow = React.createClass({
     getInitialState: function() {
-        let pingOn = config.irc.servers[0].pingOn || [];
-        let serverName = config.irc.servers[0].name || config.irc.servers[0].address;
+        serverStore.settings.serverName = config.irc.servers[0].name || config.irc.servers[0].address;
         menu.createApplicationMenu();
         return {
-            serverName: serverName,
+            serverName: serverStore.settings.serverName,
             channels: {},
             activeChannelName: null,
             channelList: [],
-            settings: {
-                pingOn: pingOn
-            },
             nick: null,
+            users: {},
+            usernames: []
         }
     },
     registeredEvent: function(message) {
-        this.setState({nick: message.args[0]});
+        // IRC server is ready to recieve info
+        let self = this;
+        let defaultChannels = config.irc.servers[0].channels;
+        defaultChannels.forEach(function(channelName){
+            self.attemptJoinChannel(channelName);
+        })
+        serverStore.nick = message.args[0];
+        this.setState({nick: serverStore.nick});
     },
     addMessage: function(channelName, fromUser, message, messageType) {
-        let shouldPing = this.state.channels[channelName].addMessage(
-            fromUser, message, messageType
-        );
-        if (shouldPing && config.irc.servers[0].showNotifications && fromUser !== this.state.nick) {
-            notifier.sendNotification(`New message from ${fromUser} in ${channelName}`, message);
-        }
+        serverStore.addMessage(channelName, fromUser, message, messageType);
     },
     addPrivateMessage: function(pmChannel, messageUser, message) {
         if (!this.state.channels[pmChannel]) {
@@ -186,20 +183,23 @@ var IrcWindow = React.createClass({
         this.setupBrowserEvents();
     },
     channelNamesEvent: function(channelName, names){
-        let channel = this.state.channels[channelName];
-        if (!channel) { return; }
-        for (var key in names) {
-            let userType = names[key]
-            channel.addUser(key, userType);
-        }
-        this.updateChannels();
+        serverStore.setChannelNames(channelName, names);
+        // No need to re-render
+        if (channelName !== this.state.activeChannelName){ return; };
+        this.updateUserList();
+    },
+    updateUserList: function() {
+        this.setState({
+            'users': serverStore.channels[this.state.activeChannelName].users,
+            'usernames': serverStore.channels[this.state.activeChannelName].usernames
+        });
     },
     joinChannelEvent: function(channelName, nick, message){
         let channel = this.state.channels[channelName];
         if (!channel) { return; }
+        channel.addUser(nick);
         if (config.irc.showJoinLeave) {
             let joinMessage = `(${message.user}@${message.host}) joined the channel`;
-            channel.addUser(nick);
             this.addMessageToChannel(channelName, nick, joinMessage, 'join');
         }
         this.updateChannels();
@@ -207,99 +207,73 @@ var IrcWindow = React.createClass({
     partChannelEvent: function(channelName, nick, reason, message){
         let channel = this.state.channels[channelName];
         if (!channel) { return; }
+        channel.removeUser(nick);
         if (config.irc.showJoinLeave) {
             let partMessage = `(${message.user}@${message.host}) left the channel`;
-            channel.removeUser(nick);
             this.state.channels[channelName].addPartMessage(nick, partMessage);
         }
         this.updateChannels();
     },
     joinPrivateMessageChannel: function(name) {
         if (!this.state.channels[name]) {
-            this.state.channels[name] = new ChannelStore(
-                name, 'private-message', this.state.settings.pingOn
-            );
-            this.state.channelList.push(name);
+            serverStore.addNewChannel(channelName, channelType);
             this.updateChannels();
-            this.setActiveChannel(name);
         } else {
             this.setActiveChannel(name);
         }
     },
     leaveChannel: function(channelName) {
-        let channel = this.state.channels[channelName];
-        if (channel.type === 'private-message') {
-            // Not real IRC channels, don't send LEAVE event.
-            return this.leaveChannelSuccess(channelName);
-        }
-        eventHandler.leaveChannel(channelName);
+        serverStore.leaveChannel(channelName);
     },
     leaveChannelSuccess: function(channelName) {
-        if (!this.state.channels[channelName]) {return;}
-        if (this.state.activeChannelName === channelName) {
-            if (this.state.channelList.length > 1) {
-                this.previousChannel();
-            } else {
-                this.setState({activeChannelName:null});
-            }
-        }
-
-        delete this.state.channels[channelName];
-        this.state.channelList.splice(
-            this.state.channelList.indexOf(channelName), 1
-        );
+        serverStore.markLeftChannel(channelName);
         this.updateChannels();
     },
+    attemptJoinChannel: function(channelName) {
+        serverStore.addNewChannel(channelName, 'standard');
+    },
     joinChannelSuccess: function(channelName) {
-        if (!this.state.channels[channelName]) {
-            this.state.channels[channelName] = new ChannelStore(
-                channelName, 'standard', this.state.settings.pingOn
-            );
-            this.state.channelList.push(channelName);
-            this.updateChannels();
-
-            this.setActiveChannel(channelName);
-        }
+        serverStore.markJoinedChannel(channelName);
+        this.updateChannels();
+        this.refreshActiveChannel();
     },
     getActiveChannel: function() {
         return this.state.channels[this.state.activeChannelName];
     },
-    updateChannels: function() {
+    setActiveChannel: function(channelName) {
+        serverStore.setActiveChannel(channelName);
+        this.refreshActiveChannel();
+    },
+    refreshActiveChannel: function() {
+        let channel = serverStore.getActiveChannel();
+        let users = {};
+        let usernames = [];
+        if (channel) {
+            users = channel.users;
+            usernames = channel.usernames;
+        }
         this.setState({
-            channels: this.state.channels,
-            channelList: this.state.channelList,
+            activeChannelName: serverStore.activeChannelName,
+            users: users,
+            usernames: usernames,
         });
     },
-    setActiveChannel: function(channelName) {
-        if (channelName === this.state.activeChannelName || !this.state.channels[channelName]) {
-            return;
-        }
-        let current = this.getActiveChannel();
-        if (current) {
-            current.active(false);
-        }
-        this.state.channels[channelName].active(true);
-        this.setState({activeChannelName: channelName});
+    updateChannels: function() {
+        this.setState({
+            channels: serverStore.channels,
+            channelList: serverStore.channelList,
+            activeChannelName: serverStore.activeChannelName,
+        });
     },
     nextChannel: function(e) {
         e && e.preventDefault();
-        if (this.state.channelList.length <= 1) { return; }
-        let currentIndex = this.state.channelList.indexOf(this.state.activeChannelName);
-        if (currentIndex === -1) { return; }
-        if (currentIndex == this.state.channelList.length - 1) {
-            return this.setActiveChannel(this.state.channelList[0]);
-        }
-        this.setActiveChannel(this.state.channelList[currentIndex + 1]);
+        serverStore.setNextChannel();
+        this.refreshActiveChannel();
     },
     previousChannel: function(e) {
         e && e.preventDefault();
-        if (this.state.channelList.length <= 1) { return; }
-        let currentIndex = this.state.channelList.indexOf(this.state.activeChannelName);
-        if (currentIndex === -1) { return; }
-        if (currentIndex == 0) {
-            return this.setActiveChannel(this.state.channelList[this.state.channelList.length - 1])
-        }
-        this.setActiveChannel(this.state.channelList[currentIndex - 1]);
+        serverStore.setPreviousChannel();
+        this.refreshActiveChannel();
     },
     setupBrowserEvents: function() {
         window.onbeforeunload = function(e) {
@@ -318,7 +292,8 @@ var IrcWindow = React.createClass({
             channel = <Channel
                         channel={this.state.channels[this.state.activeChannelName]}/>;
             users = <UserList
-                channel={this.state.channels[this.state.activeChannelName]}
+                users={this.state.users}
+                usernames={this.state.usernames}
                 joinPrivateMessageChannel={this.joinPrivateMessageChannel}/>;
         }
         return (

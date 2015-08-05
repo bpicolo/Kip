@@ -1,7 +1,6 @@
-var ipc = require('ipc');
-var util = require('util');
-
-var irc = require('irc');
+import ipc from 'ipc';
+import util from 'util';
+import irc from 'irc';
 
 
 class Irc {
@@ -16,7 +15,7 @@ class Irc {
         this.ircClient = new irc.Client(server.address, server.nick, {
             port: server.port,
             password: server.password,
-            secure: server.channels,
+            secure: server.secure,
             channels: server.channels,
             retryCount: 3,
             stripColors: true,  // bad feature
@@ -32,11 +31,11 @@ class Irc {
         this.ircClient.addListener('message', this.sendMessage.bind(this));
         this.ircClient.addListener('action', this.sendAction.bind(this));
 
+        // bound to irc tcp connection
+        this.ircClient.conn.addListener('close', this.onDisconnect.bind(this));
+
         this.ircClient.addListener('registered', function(message) {
             self._webContents.send('registered', message);
-            for (var i = 0; i < server.channels.length; i++) {
-                self.clientJoinChannel(null, server.channels[i]);
-            }
         });
 
         this.bindRecieveEvents();
@@ -48,6 +47,9 @@ class Irc {
         ipc.on('client-join-channel', this.clientJoinChannel.bind(this));
         ipc.on('client-leave-channel', this.clientLeaveChannel.bind(this));
         ipc.on('client-disconnect', this.clientDisconnect.bind(this));
+    }
+    pingServer() {
+        this.ircCLient.send('ping', this.ircClient.opt.server);
     }
     clientSendMessage(e, channelName, message) {
         this.sendMessage(this.ircClient.nick, channelName, message);
@@ -75,6 +77,9 @@ class Irc {
     }
     clientDisconnect() {
         this.ircClient.disconnect();
+    }
+    onDisconnect() {
+
     }
     sendPMEvent(toNick, message) {
         this._webContents.send('private-message', toNick, this.ircClient.nick, message);
