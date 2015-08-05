@@ -62,6 +62,11 @@ export class ChannelStore {
 
         return shouldPing;
     }
+    clearUsers() {
+        this.users = {};
+        this.usernames = [];
+        this.autocomplete = new Autocomplete();
+    }
     removeUser(username) {
         this.users[username].setActive(false);
         this.usernames.splice(this.usernames.indexOf(username), 1);
@@ -199,6 +204,10 @@ class ServerStore {
     setChannelNames(channelName, names) {
         let channel = this.channels[channelName];
         if (!channel) { return; }
+        // Hold a reference to these until we refresh them
+        let users = channel.users;
+        let usernames = channel.usernames;
+        channel.clearUsers();
         for (var key in names) {
             let userType = names[key]
             channel.addUser(key, userType);
