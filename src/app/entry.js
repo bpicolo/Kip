@@ -171,7 +171,11 @@ var IrcWindow = React.createClass({
     addMessageToChannel: function(channelName, from, message, type) {
         let messageType = type || 'text-message';
         serverStore.addMessage(channelName, from, message, messageType);
-        this.refreshMessages();
+        if (this.state.activeChannelName === channelName) {
+            this.refreshMessages();
+        } else {
+            this.updateChannels();
+        }
     },
     componentDidMount: function() {
         ipc.on('join-channel-success', this.joinChannelSuccess);
