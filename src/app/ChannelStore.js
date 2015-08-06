@@ -68,9 +68,11 @@ export class ChannelStore {
         this.autocomplete = new Autocomplete();
     }
     removeUser(username) {
-        this.users[username].setActive(false);
-        this.usernames.splice(this.usernames.indexOf(username), 1);
-        this.autocomplete.removeElement(username);
+        if (this.users[username]) {
+            this.users[username].setActive(false);
+            this.usernames.splice(this.usernames.indexOf(username), 1);
+            this.autocomplete.removeElement(username);
+        }
     }
     addUser(username, type) {
         let userType = type || '';
