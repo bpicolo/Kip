@@ -48,7 +48,7 @@ export class ChannelStore {
         ))
     }
     addMessage(from, text, type) {
-        if (!this._active) {
+        if (!this._active && type === 'text-message') {
             this.unread++;
         }
         if (!this.users[from]) {
@@ -163,7 +163,7 @@ class ServerStore {
         if (!this.channels[channelName]) {return;}
         if (this.activeChannelName === channelName) {
             if (this.channelList.length > 1) {
-                this.previousChannel();
+                this.setPreviousChannel();
             } else {
                 this.activeChannelName = null;
             }
@@ -223,6 +223,14 @@ class ServerStore {
         for (var key in this.channels) {
             this.channels[key].reconnect();
         }
+    }
+    removeUserFromChannels(username, channels) {
+        let self = this;
+        channels.forEach(function(channel){
+            if (self.channels[channel]) {
+                self.channels[channel].removeUser(username);
+            }
+        });
     }
 }
 

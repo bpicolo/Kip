@@ -95,12 +95,10 @@ html {
 .message-highlight {
     background-color: rgba(145, 180, 255, 0.4)
 }
-.message.join {
-    color: #aaa;
-}
-.message.leave {
-    color: #aaa;
-}
+.message.leave,
+.message.join,
+.message.quit,
+.message.kill,
 .message.connection {
     color: #aaa;
 }

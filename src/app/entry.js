@@ -181,6 +181,9 @@ var IrcWindow = React.createClass({
         ipc.on('channel-names', this.channelNamesEvent);
         ipc.on('registered', this.registeredEvent);
         ipc.on('user-join-channel', this.joinChannelEvent);
+        ipc.on('user-kick', this.kickUser);
+        ipc.on('user-kill', this.killUser);
+        ipc.on('user-quit', this.userQuit);
         ipc.on('user-part-channel', this.partChannelEvent);
         ipc.on('disconnect', this.onDisconnect);
         ipc.on('reconnect', this.onReconnect);
@@ -206,10 +209,55 @@ var IrcWindow = React.createClass({
         if (config.irc.showJoinLeave) {
             let joinMessage = `(${message.user}@${message.host}) joined the channel`;
             this.addMessageToChannel(channelName, nick, joinMessage, 'join');
-            this.refreshMessages();
         }
         if (channelName === this.state.activeChannelName) {
             this.refreshUserList();
+            this.refreshMessages();
+        }
+    },
+    killUser: function(username, reason, channels, message) {
+        let self = this;
+        serverStore.removeUserFromChannels(username, channels);
+        if (channels.indexOf(this.state.activeChannelName) !== -1) {
+            // Defer this to flux?
+            this.refreshUserList();
+            if (config.irc.showJoinLeave) {
+                let message = 'has been killed from IRC.';
+                this.addMessageToChannel(
+                    this.state.activeChannelName,
+                    username,
+                    message,
+                    'kill'
+                )
+            }
+        }
+    },
+    userQuit: function(username, reason, channels, message) {
+        let self = this;
+        serverStore.removeUserFromChannels(username, channels);
+        if (channels.indexOf(this.state.activeChannelName) !== -1) {
+            // Defer this to flux?
+            this.refreshUserList();
+            if (config.irc.showJoinLeave) {
+                let message = 'has quit IRC.';
+                this.addMessageToChannel(
+                    this.state.activeChannelName,
+                    username,
+                    message,
+                    'quit'
+                )
+            }
+        }
+    },
+    kickUser: function(channelName, nick, by, reason, message) {
+        serverStore.killUser(username, channels);
+        if (config.irc.showJoinLeave) {
+            let kickMessage = `(${nick} was kicked by ${by}): ${reason}`;
+            this.addMessageToChannel(channelName, nick, kickMessage, 'kick');
+        }
+        if (channelName === this.state.activeChannelName){
+            this.refreshUserList();
+            this.refreshMessages();
         }
     },
     partChannelEvent: function(channelName, nick, reason, message){
@@ -219,10 +267,10 @@ var IrcWindow = React.createClass({
         if (config.irc.showJoinLeave) {
             let partMessage = `(${message.user}@${message.host}) left the channel`;
             serverStore.channels[channelName].addPartMessage(nick, partMessage);
-            this.refreshMessages();
         }
         if (channelName === this.state.activeChannelName) {
             this.refreshUserList();
+            this.refreshMessages();
         }
     },
     joinPrivateMessageChannel: function(name) {

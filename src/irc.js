@@ -31,6 +31,9 @@ class Irc {
         this.ircClient.addListener('part', this.sendPart.bind(this));
         this.ircClient.addListener('message', this.sendMessage.bind(this));
         this.ircClient.addListener('action', this.sendAction.bind(this));
+        this.ircClient.addListener('kick', this.sendKick.bind(this));
+        this.ircClient.addListener('kill', this.sendKill.bind(this));
+        this.ircClient.addListener('quit', this.sendQuit.bind(this));
 
         // bound to irc tcp connection
         this.ircClient.conn.addListener('close', this.onDisconnect.bind(this));
@@ -109,6 +112,15 @@ class Irc {
     }
     sendJoinChannelSuccess(channelName) {
         this._webContents.send('join-channel-success', channelName);
+    }
+    sendKill(nick, reason, channels, message) {
+        this._webContents.send('user-kill', nick, reason, channels, message);
+    }
+    sendQuit(nick, reason, channels, message) {
+        this._webContents.send('user-quit', nick, reason, channels, message);
+    }
+    sendKick(channel, nick, by, reason, message) {
+        this._webContents.send('user-kick', channel, nick, by, reason, message);
     }
     sendLeaveChannelSuccess(channelName) {
         this._webContents.send('leave-channel-success', channelName);
