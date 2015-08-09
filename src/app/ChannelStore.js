@@ -1,31 +1,45 @@
-import { Dispatcher } from 'flux';
-import EventEmitter from 'events';
 import Autocomplete from 'autocomplete';
-import { Message, ConnectMessage } from './messages';
-import eventHandler from './event';
 import config from '../config';
+import EventEmitter from 'events';
+import * as util from './util';
+import { Dispatcher } from 'flux';
+import { Message, ConnectMessage, MessageType} from './messages';
 import { Notifier } from './notifications';
+var eventHandler = require('./event');
 
 export var channelDispatcher = new Dispatcher();
 var notifier = new Notifier();
 
 class User {
-    constructor(username, userType) {
+    constructor(username, userType, userMode) {
         this.active = true;
+        this.userMode = userMode;
         this.userType = userType;
         this.username = username;
         this.color = util.getRandomColor();
-        let userTypeString = (userType === 'ghost') ? '' : userType;
-        this.formattedName = userTypeString + this.username
+        let userModeString = (userMode === 'ghost') ? '' : userMode;
+        this.formattedName = userModeString + this.username
     }
     setActive(active) {
         this.active = active;
     }
 }
 
+
+export var UserType = {
+    ghost: 'ghost',
+    standard: 'standard'
+}
+
+
+export var ChannelType = {
+    standard: 'standard',
+    privateMessage: 'private-message'
+}
+
 var iconMap = {
-    'private-message': 'glyphicon-user',
-    'standard': 'glyphicon-comment'
+    [ChannelType.privateMessage]: 'glyphicon-user',
+    [ChannelType.standard]: 'glyphicon-comment'
 }
 
 
@@ -44,15 +58,15 @@ export class ChannelStore {
     }
     addPartMessage(nick, partMessage) {
         this.messages.push(new Message(
-            this.users[nick], this.name, partMessage, false, 'leave'
+            this.users[nick], this.name, partMessage, false, MessageType.leave
         ))
     }
     addMessage(from, text, type) {
-        if (!this._active && type === 'text-message') {
+        if (!this._active && type === MessageType.standard) {
             this.unread++;
         }
         if (!this.users[from]) {
-            this.users[from] = new User(from, 'ghost');
+            this.users[from] = new User(from, UserType.ghost);
         }
         let shouldPing = this.shouldPing(text);
         this.unreadPing = this.unreadPing || shouldPing;
@@ -62,25 +76,25 @@ export class ChannelStore {
 
         return shouldPing;
     }
-    clearUsers() {
-        this.users = {};
-        this.usernames = [];
-        this.autocomplete = new Autocomplete();
-    }
     removeUser(username) {
         this.users[username].setActive(false);
-        this.usernames.splice(this.usernames.indexOf(username), 1);
+        let idx = this.usernames.indexOf(username);
+        if (idx !== -1) {
+            this.usernames.splice(idx, 1);
+        }
         this.autocomplete.removeElement(username);
     }
-    addUser(username, type) {
-        let userType = type || '';
+    addUser(username, mode) {
+        let userMode = mode || '';
         if (this.users[username]) {
             if (this.users[username].userType === 'ghost') {
-                this.users[username].userType = userType;
+                this.users[username].userType = UserType.standard;
             }
-            return this.users[username].setActive(true);
+            this.users[username].userMode = userMode;
+            this.users[username].setActive(true);
+        } else {
+            this.users[username] = new User(username, UserType.standard, userMode);
         }
-        this.users[username] = new User(username, userType);
         this.autocomplete.addElement(username);
         this.usernames.push(username); // Todo fix @, + etc
         this.usernames.sort();
@@ -115,8 +129,9 @@ export class ChannelStore {
 }
 
 
-class ServerStore {
-    constructor() {
+export class ServerStore {
+    constructor(eventHandler) {
+        this.eventHandler = eventHandler;
         this.serverName = null;
         this.channels = {};
         this.activeChannelName = null;
@@ -137,9 +152,9 @@ class ServerStore {
         if (!this.channels[channelName]) {
             this.channels[channelName] = new ChannelStore(channelName, channelType);
             this.channelList.push(channelName);
-            eventHandler.joinChannel(channelName);
+            this.eventHandler.joinChannel(channelName);
         } else {
-            eventHandler.joinChannel(channelName);
+            this.eventHandler.joinChannel(channelName);
         }
     }
     markJoinedChannel(channelName) {
@@ -150,11 +165,11 @@ class ServerStore {
     }
     leaveChannel(channelName) {
         if (!this.channels[channelName]) {return};
-        if (this.channels[channelName].type === 'private-message') {
+        if (this.channels[channelName].type === ChannelType.privateMessage) {
             // Not real IRC channels, don't send LEAVE event.
             return this.markLeftChannel(channelName);
         }
-        eventHandler.leaveChannel(channelName);
+        this.eventHandler.leaveChannel(channelName);
     }
     getActiveChannel() {
         return this.channels[this.activeChannelName];
@@ -204,14 +219,21 @@ class ServerStore {
     setChannelNames(channelName, names) {
         let channel = this.channels[channelName];
         if (!channel) { return; }
-        // Hold a reference to these until we refresh them
-        let users = channel.users;
-        let usernames = channel.usernames;
-        channel.clearUsers();
-        for (var key in names) {
-            let userType = names[key]
-            channel.addUser(key, userType);
+        let usersToAdd = Object.keys(names).filter(function(username){
+            return !channel.users[username] || !channel.users[username].active;
+        });
+        let usersToDeactivate = channel.usernames.filter(function(username){
+            return !names[username];
+        });
+
+        for (let username of usersToAdd) {
+            let userMode = names[username]
+            channel.addUser(username, userMode);
         }
+        for (let username of usersToDeactivate) {
+            channel.removeUser(username);
+        }
+
     }
     onDisconnect() {
         // Mark all channels disconnected and add disconnect messages
@@ -235,4 +257,4 @@ class ServerStore {
 }
 
 
-export var serverStore = new ServerStore();
+export var serverStore = new ServerStore(eventHandler);

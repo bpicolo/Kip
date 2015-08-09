@@ -6,9 +6,10 @@ import React from 'react';
 import Combokeys from 'combokeys';
 import globalBind from 'combokeys/plugins/global-bind';
 
-import { channelDispatcher, ChannelStore, serverStore } from './app/ChannelStore';
+import { channelDispatcher, ChannelStore, ChannelType, serverStore } from './app/ChannelStore';
 import eventHandler from './app/event';
 import IrcInput from './app/IrcInput';
+import { MessageType } from './app/messages';
 import * as menu from './app/menu';
 import * as util from './app/util';
 import config from './config';
@@ -166,10 +167,10 @@ var IrcWindow = React.createClass({
             this.state.channels[pmChannel].addUser(this.state.nick);
         }
         this.state.channels[pmChannel].addUser(messageUser);
-        this.addMessageToChannel(pmChannel, messageUser, message, 'private-message');
+        this.addMessageToChannel(pmChannel, messageUser, message, MessageType['private']);
     },
     addMessageToChannel: function(channelName, from, message, type) {
-        let messageType = type || 'text-message';
+        let messageType = type || MessageType.standard;
         serverStore.addMessage(channelName, from, message, messageType);
         if (this.state.activeChannelName === channelName) {
             this.refreshMessages();
@@ -212,7 +213,7 @@ var IrcWindow = React.createClass({
         channel.addUser(nick);
         if (config.irc.showJoinLeave) {
             let joinMessage = `(${message.user}@${message.host}) joined the channel`;
-            this.addMessageToChannel(channelName, nick, joinMessage, 'join');
+            this.addMessageToChannel(channelName, nick, joinMessage, MessageType.join);
         }
         if (channelName === this.state.activeChannelName) {
             this.refreshUserList();
@@ -231,7 +232,7 @@ var IrcWindow = React.createClass({
                     this.state.activeChannelName,
                     username,
                     message,
-                    'kill'
+                    MessageType.kill
                 )
             }
         }
@@ -248,7 +249,7 @@ var IrcWindow = React.createClass({
                     this.state.activeChannelName,
                     username,
                     message,
-                    'quit'
+                    MessageType.quit
                 )
             }
         }
@@ -257,7 +258,7 @@ var IrcWindow = React.createClass({
         serverStore.killUser(username, channels);
         if (config.irc.showJoinLeave) {
             let kickMessage = `(${nick} was kicked by ${by}): ${reason}`;
-            this.addMessageToChannel(channelName, nick, kickMessage, 'kick');
+            this.addMessageToChannel(channelName, nick, kickMessage, MessageType.kick);
         }
         if (channelName === this.state.activeChannelName){
             this.refreshUserList();
@@ -293,7 +294,7 @@ var IrcWindow = React.createClass({
         this.updateChannels();
     },
     attemptJoinChannel: function(channelName) {
-        serverStore.addNewChannel(channelName, 'standard');
+        serverStore.addNewChannel(channelName, ChannelType.standard);
     },
     joinChannelSuccess: function(channelName) {
         serverStore.markJoinedChannel(channelName);

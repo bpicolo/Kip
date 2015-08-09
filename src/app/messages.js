@@ -11,6 +11,17 @@ import moment from 'moment';
 var detectImageRe = /(https?:\/\/.*\.(?:png|jpg|gif))/g;
 
 
+export var MessageType = {
+    standard: 'text-message',
+    'private': 'private-message',
+    join: 'join',
+    kick: 'kick',
+    kill: 'kill',
+    quit: 'quit',
+    leave: 'leave'
+}
+
+
 export class ConnectMessage {
     constructor(connected) {
         this.time = moment().format('h:mm:ss');
