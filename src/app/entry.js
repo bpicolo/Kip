@@ -280,7 +280,7 @@ var IrcWindow = React.createClass({
     },
     joinPrivateMessageChannel: function(name) {
         if (!this.state.channels[name]) {
-            serverStore.addNewChannel(channelName, channelType);
+            serverStore.addNewChannel(name, 'private-message');
             this.updateChannels();
         } else {
             this.setActiveChannel(name);

@@ -1,5 +1,4 @@
 'use strict';
-var rewire = require('rewire');
 var sinon = require('sinon');
 
 var assert = require('assert');

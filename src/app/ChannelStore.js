@@ -77,12 +77,14 @@ export class ChannelStore {
         return shouldPing;
     }
     removeUser(username) {
-        this.users[username].setActive(false);
-        let idx = this.usernames.indexOf(username);
-        if (idx !== -1) {
-            this.usernames.splice(idx, 1);
+        if (this.users[username]) {
+            this.users[username].setActive(false);
+            let idx = this.usernames.indexOf(username);
+                if (idx !== -1) {
+                    this.usernames.splice(idx, 1);
+                }
+            this.autocomplete.removeElement(username);
         }
-        this.autocomplete.removeElement(username);
     }
     addUser(username, mode) {
         let userMode = mode || '';
